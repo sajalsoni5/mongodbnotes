@@ -46,8 +46,44 @@ db.persons.aggregate([
     { $sort: { count: -1 } }
   ]).pretty();
   
-  
+
+// 
+$project is used to show the only keys that we want to show from the document
+
+db.persons.aggregate([
+	{$project:{_id:0,gender:1,'name.first':1}}
+])
 
   
-  
+we can use more complex query in project 
+db.persons.aggregate([
+    {
+      $project: {
+        _id: 0,
+        gender: 1,
+        fullName: {
+          $concat: [ 
+            { $toUpper: { $substrCP: ['$name.first', 0, 1] } }, //extracted the first char from the first name and capitalized it
+            {
+              $substrCP: [  //extracting the rest of the characters from the first name string
+                '$name.first',
+                1,
+                { $subtract: [{ $strLenCP: '$name.first' }, 1] } 
+              ]
+            },
+            ' ',
+            { $toUpper: { $substrCP: ['$name.last', 0, 1] } }, //capitalized first char of last name
+            {
+              $substrCP: [
+                '$name.last',
+                1,
+                { $subtract: [{ $strLenCP: '$name.last' }, 1] }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]).pretty();
+
 

@@ -125,6 +125,40 @@ db.persons.findOne({},{_id:0,gender:1,fullname:{$concat:["$name.first"," ","$nam
 { "gender" : "male", "fullname" : "zachary lo" }
 
 
+further we can have more control over the data that we want to project in our results
+If you want to show first or last names in upper or lower case you can use below operators
+$toUpper,$toLower
+if you want substring from a string user $substrCP:["name of the key",from index, number of char]
+to get the length of the string use $strLenCP:'name of the key'
+
+//	Below will return first character of the first and last name in upper case
+db.persons.findOne({},
+{_id:0,
+gender:1,
+fullname:{
+	$concat: [ 
+            { $toUpper: { $substrCP: ['$name.first', 0, 1] } }, //extracted the first char from the first name and capitalized it
+            {
+              $substrCP: [  //extracting the rest of the characters from the first name string
+                '$name.first',
+                1,
+                { $subtract: [{ $strLenCP: '$name.first' }, 1] } 
+              ]
+            },
+            ' ',
+            { $toUpper: { $substrCP: ['$name.last', 0, 1] } }, //capitalized first char of last name
+            {
+              $substrCP: [
+                '$name.last',
+                1,
+                { $subtract: [{ $strLenCP: '$name.last' }, 1] }
+              ]
+            }
+          ]
+	}
+}) 
+
+
 IF we want only few items in an Array filed
 
 db.find({genres:"Drama"},{"genres.$":1}).pretty();
