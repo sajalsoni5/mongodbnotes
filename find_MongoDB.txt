@@ -1,0 +1,156 @@
+find-------->
+db.movies.findOne()
+will return one document in a formatted way
+
+db.movies.findOne({age:30})
+returns document which has age =30
+
+db.movies.find().pretty()
+will return all the doucments in movies collections. Note that will return cursor which only gives 20
+document at a time.
+
+--------> Working with comparison operators
+>db.movies.find({age:{$lt:30}})
+returns all document with age less than 30 
+
+>db.movies.find({age:{$eq:30}}) or db.movies.find({age:30})
+returns the document equal to 30
+
+>db.movies.find({age:{$ne:30}})
+returns all documents which is not equal 30
+$gt ; $lte,$gte
+
+>db.movies.find({age:{$ne:30}}).count()
+here count returns the number of documents
+
+_______Embedded fields and Arrays
+>>db.movies.find({"rating.average":{$gt:7}})
+>>db.movies.find({genres:["Drama"]}) --->returns document with exact same array
+>>db.movies.find({genres:"Drama"})--returns document which includes Drama but may contain more values
+
+_______$in and $nin
+>>db.movies.find({runtime:{$in:[30,42]}})
+returns documents with runtime only 30 and 42
+>>db.movies.find({runtime:{$nin:[30,42]}})
+returns documents which doesnt include runtime 30 and 42
+
+--------> Working with Logical operators
+$or--
+if we want to search movies which has rating lower than 5 or rating greater than 9.3 at the same time...
+>>db.movies.find({$or: [ {"rating.average": {$gt:9.3}} , {"rating.average": {$lt:5}} ] })
+$nor--
+just the opposite of the above query.. where we dont want both conditions to meet
+>>db.movies.find({$nor: [ {"rating.average": {$gt:9.3}} , {"rating.average": {$lt:5}} ] })
+
+$and--
+>>db.movies.find({$and: [ {"rating.average": {$gt:9.3}} , {"genres": "Drama"} ] })
+
+
+-----------> ELEMENT operators
+>> db.users.find({age:{$exists:true}})
+ return the doucments with age fields
+>> db.users.find({age:{$exists:false}})
+
+>> db.users.find({phone:{$type:"double"}})
+>> db.users.find({phone:{$type:["double","String"]}})
+ 
+ expressions
+>>db.sales.find({$expr:{$gt:["$volume","$target"]}})
+return all document where volume is greater than target
+
+
+Arrays:
+db.sales.find({list:{$size:3}}).pretty()
+returns all the documnet where Arrya list is the size of 3.
+
+------------>>>understanding cursors
+>db.movies.find() should return all the document present in the collection but instead it return only
+a cursor object. which only includes 20 documents at a time.
+A cursor object request document from server in batches, so consumes less resoures.
+
+>db.movies.find().next() 
+returns exactly one document from the cursor. if we execute it again, it will give the next document.
+
+>databaseCursor=db.movies.find()
+>databaseCursor.next()
+return the next document
+
+>db.movies.find().sort({"rating.average":1}) --> here 1 means ascending
+>db.movies.find().sort({"rating.average":-1}) --> -1 means descending
+sort({"age":1,"name":-1}) -->can have multiple criteria
+
+>db.user.insertMany([{name:"sajal",age:21},{name:"abhishek",age:22},{name:"nidhi",age:25}])
+>db.user.find().sort({age:-1})
+>db.user.find().sort({age:-1,name:1})  //same age users will have names in ascending order
+>db.user.find().sort({age:-1}).skip(1).limit(1)    // Here .sort .skip and .limit order does not matter
+as mongodb will automatically do it in correct order..(example is correct order)
+skip 
+returns the 2nd largest age
+
+projections--
+with projection we can limit the key, value pairs returned by db, hence we have to send less redundent
+data over the connection and we get only the data we need
+
+ex. We want to fetch all documents but with only name and age fields
+db.find({//needs to be empty},{name:1,age:1}).pretty()
+{
+	_id: Object(eglkaj2r54),
+	name: "sajal",
+	age: 26
+}
+
+mongodb includes _id fields by default, so we have to remove it explictly
+db.find({},{name:1,age:1,_id:0}).pretty();
+
+if there is an embedded filed
+db.find.({},{name:1,"address.location":1}).pretty() //this will only show location in address 
+
+
+persons dummy doc
+{
+	_id: Object(),
+	gender: 'male',
+	name:{
+		first:'sajal',
+		middle:'kumar',
+		last:'soni'
+	}
+	location:{
+		state:'mp',
+		country:'india'
+	}
+}
+If a document has embedded object and you want custom output from that object user $concat
+db.persons.findOne({},{_id:0,gender:1,fullname:{$concat:["$name.first"," ","$name.last"]}}) // the '$' sign tells the mongo db that inside the inverted comma it is not a fixed string but a mongodb key from a document 
+{ "gender" : "male", "fullname" : "zachary lo" }
+
+
+IF we want only few items in an Array filed
+
+db.find({genres:"Drama"},{"genres.$":1}).pretty();
+{_id:object(aljdlaf),genres:["drama"]}
+{_id:object(bljdlaf),genres:["drama"]}
+
+$all 
+db.find({genres:{$all:["Drama","horror"]}},{"genres.$":1}).pretty();
+{_id:object(aljdlaf),genres:["horror"]}  // Returns only horror  becuase horror was inserted before in original array
+{_id:object(bljdlaf),genres:["horror"]}
+
+$elemMatch
+db.find({genres:"Drama"},{genres:{$elemMatch:{$eq:"Horror"}}}).pretty();
+//here we get the filtered documents that has "drama" in genre
+// but it will only the the genre field if that array also has "horror" is array
+{_id:object(aljdlaf)}
+{_id:object(dsaljdlaf)}
+{_id:object(ealjddlaf)}
+{_id:object(bljdlaf),genres:["horror"]}
+{_id:object(aljddfdlaf)}
+
+db.find({"rating.average":{$gt:9}},{genres:{$elemMatch:{$eq:"Horror"}}}).pretty();
+// will get all filtered document which has avg rating greater than 9 , but 
+it will only show genre filed if it contains 'horror'
+
+
+
+
+

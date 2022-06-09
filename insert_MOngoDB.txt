@@ -1,0 +1,49 @@
+The MongoDB uses Json format to store data. but it is actually saved as BSON format. Binary JSON.
+
+--->CRUD OPERATIONS:
+>insertOne(data,options)||insertMany(data,options)
+>find(filter,options)||findOne(filter,options)
+>updateOne(filter,data,options)||updateMany(filter,data,options)
+>deleteOne(filter,options)||deleteMany(filter,options)
+
+--Insert opteration:
+>db.persons.insertOne({name:"sajal",age:43;isActive:true,company:"TCS"})
+Returns objectid
+>db.persons.insertMany([{name:"Raja",age:22,isActive:false,company:"WIPRO"},{name:"kranthi",age:33,isActive:true,company:"EY"}])
+Returns objectid
+>db.insert({name:"sajal",age:43;isActive:true,company:"TCS"})
+Doesnt return objectid
+>db.insert([{name:"Raja",age:22,isActive:false,company:"WIPRO"},{name:"kranthi",age:33,isActive:true,company:"EY"}])
+Doesnt return objectid
+
+__-___Ordered Insert____--______
+>>db.hobbies.insertMany([{_id:"yoga",name:"YOGA"},{_id:"sports",name:"sports"},{_id:"cooking",name:"cooking"}])
+returns objectid of all theree documents
+
+>>db.hobbies.insertMany([{_id:"coffee",name:"COFFEE"},{_id:"sports",name:"sports"},{_id:"gym",name:"GYM"}])
+will give Error when it reaches _id:"sports" because it is already present
+But it will still insert the first document with id:coffee because by the time it reached to the
+second document it had alreay inserted the first doucument and cannot Rollforward now.
+
+>> Now if we try to insert the above query again, it will give error and will not insert id:gym
+because the first id was already present and it quickly stopped there itself
+
+to insert the last document use the option {ordered:false}
+>>db.hobbies.insertMany([{_id:"coffee",name:"COFFEE"},{_id:"sports",name:"sports"},{_id:"gym",name:"GYM"}],{ordered:false})
+will insert 1 document which is _id:"gym" because it doesnt care if any document fails to insert
+
+______writeConcern_____
+db.hobbies.insertOne({},{writeConcern:{w:1,j:undefined}})
+db.hobbies.insertOne({},{writeConcern:{w:1,j:true}})-->will acknowledge only when it was successully written in journel
+journel--> is like to-do list
+db.hobbies.insertOne({},{writeConcern:{w:1,wtimeout:200,j:true}})
+
+_______what is Atomicity?______
+Atomicity insures that when you insert a document "the document gets inserted as one entity"
+this means if server goes down between insertMany operation , the document will get inserted or
+will not get inserted at all.
+
+
+
+
+

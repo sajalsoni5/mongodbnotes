@@ -1,0 +1,53 @@
+Mongo DB aggregation is used for retrieving the data which is calculated dynamically.
+ex. Finding the total number of orders for each individual product
+ex. Finding the number of male and female candidates
+
+here is the schema of aggregation
+db.collection.aggregate([
+... {stage1},{stage2},{stage3}
+])
+
+each stage fetches the data, and passes the data to next stage one by one.. this is called
+aggregation pipeline
+
+ex. Find male and female population in a country collection
+
+db.country.aggregate([
+	{$match:{}},  #to filter the data , just like db.country.find(), here its empty because we dont want filtering
+	{$group:{_id:'$gender',count:{$sum:1}}}}   ##here we want to group the genders and the sum function will add 1 for each document
+])
+
+
+ex. Find the male and female population above the age of 50
+db.country.aggregate([
+	{$match:{"dob.age":{$gt:50}}},
+	{$group:{_id:'$gender',count:{$sum:1}}}}
+])
+
+ex. Find the male and female population above the age of 50 and sort in descending by count
+db.country.aggregate([
+	{$match:{"dob.age":{$gt:50}}},
+	{$group:{_id:'$gender',count:{$sum:1}}}},
+	{$sort:{count:-1}}  		## count does not exist in collection document but since each stage passes data to next stage , we could get 'count' from group stage
+])
+
+
+ex. Find the male and female population above the age of 50, find avg age for each gender and sort in descending by count
+analytics db
+db.persons.aggregate([
+    { $match: { 'dob.age': { $gt: 50 } } },
+    {
+      $group: {
+        _id: { gender: '$gender' },
+        count: { $sum: 1 },
+        avgAge: { $avg: '$dob.age' }
+      }
+    },
+    { $sort: { count: -1 } }
+  ]).pretty();
+  
+  
+
+  
+  
+
