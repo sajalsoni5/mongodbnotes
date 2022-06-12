@@ -117,7 +117,11 @@ persons dummy doc
 	}
 	location:{
 		state:'mp',
-		country:'india'
+		country:'india',
+		coordinates:{
+			latitude:81.02,
+			longitude:66.22
+		}
 	}
 }
 If a document has embedded object and you want custom output from that object user $concat
@@ -157,6 +161,36 @@ fullname:{
           ]
 	}
 }) 
+
+
+if we want to show an object value like an Array value or you can transform any data in any form and show
+db.persons.findOne({},{_id:0,email:1,location:{type:"Point",coordinates:['$location.coordinates.latitude','$location.coordinates.longitude']}})
+result:
+{
+        "location" : {
+                "type" : "Point",
+                "coordinates" : [
+                        "76.4507",  //we got the coordinates in string form so we should convert it
+                        "-70.2264"
+                ]
+        },
+        "email" : "zachary.lo@example.com"
+}
+
+in previous result we got the location coordinates as string format but usually we would want in a
+number format 
+To do that we can use $convert operator
+db.persons.findOne({},{_id:0,email:1,location:{type:"Point",coordinates:[{$convert:{input:'$location.coordinates.latitude',to:'double'}},{$convert:{input:'$location.coordinates.latitude',to:'double'}}]}})
+{
+        "location" : {
+                "type" : "Point",
+                "coordinates" : [
+                        76.4507, //returned as double
+                        76.4507
+                ]
+        },
+        "email" : "zachary.lo@example.com"
+}
 
 
 IF we want only few items in an Array filed
