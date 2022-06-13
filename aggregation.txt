@@ -164,3 +164,432 @@ db.persons.aggregate([
       }
     }
   ]).pretty();
+
+
+instead of using $convert to convert the string date to an number date, 
+we can use shortcut operator $toDate and many more shortcuts to convert data
+db.persons.aggregate([
+    {
+      $project: {
+        _id: 0,
+        name: 1,
+        email: 1,
+        birthdate: { $toDate: '$dob.date' },
+        age: "$dob.age",
+        location: {
+          type: 'Point',
+          coordinates: [
+            {
+              $convert: {
+                input: '$location.coordinates.longitude',
+                to: 'double',
+                onError: 0.0,
+                onNull: 0.0
+              }
+            },
+            {
+              $convert: {
+                input: '$location.coordinates.latitude',
+                to: 'double',
+                onError: 0.0,
+                onNull: 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      $project: {
+        gender: 1,
+        email: 1,
+        location: 1,
+        birthdate: 1,
+        age: 1,
+        fullName: {
+          $concat: [
+            { $toUpper: { $substrCP: ['$name.first', 0, 1] } },
+            {
+              $substrCP: [
+                '$name.first',
+                1,
+                { $subtract: [{ $strLenCP: '$name.first' }, 1] }
+              ]
+            },
+            ' ',
+            { $toUpper: { $substrCP: ['$name.last', 0, 1] } },
+            {
+              $substrCP: [
+                '$name.last',
+                1,
+                { $subtract: [{ $strLenCP: '$name.last' }, 1] }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]).pretty();
+
+
+Difference Between Group and Project
+Group is used for converting multiple documents into one document ex count the number of employee
+project is one to one relationship. It will show all the document returned.
+
+
+______________________
+Friends collection
+{
+    "name": "Max",
+    "hobbies": ["Sports", "Cooking"],
+    "age": 29,
+    "examScores": [
+      { "difficulty": 4, "score": 57.9 },
+      { "difficulty": 6, "score": 62.1 },
+      { "difficulty": 3, "score": 88.5 }
+    ]
+  },
+  
+  
+suppose we want to see results group by age and want to see all hobbies for that age
+we want all the hobbies should be returned inside an array
+we can use $push method to create array from a value from all documents
+db.friends.aggregate({$group:{_id:{age:"$age"},allHobbies:{$push:"$hobbies"}}}).pretty()
+result:
+{
+        "_id" : {
+                "age" : 29
+        },
+        "allHobbies" : [
+                [							// This is nested array
+                        "Sports",
+                        "Cooking"
+                ],
+                [
+                        "Cooking",
+                        "Skiing"
+                ]
+        ]
+}
+{
+        "_id" : {
+                "age" : 30
+        },
+        "allHobbies" : [
+                [					// Result is nested array
+                        "Eating",
+                        "Data Analytics"
+                ]
+        ]
+}
+
+
+The above result is a nested array of hobbies because hobbies was array and $push just thinks array as one value
+to resolve this issue we can use $unwind stage
+lets see from example
+db.friends.aggregate({$unwind:"$hobbies"}).pretty()
+The returned result has split the hobbies into single values and return separte document for each value
+{
+        "_id" : ObjectId("62a5867c6ad5b36eb69da06f"),
+        "name" : "Max",
+        "hobbies" : "Sports",
+        "age" : 29,
+        "examScores" : [
+                {
+                        "difficulty" : 4,
+                        "score" : 57.9
+                },
+                {
+                        "difficulty" : 6,
+                        "score" : 62.1
+                },
+                {
+                        "difficulty" : 3,
+                        "score" : 88.5
+                }
+        ]
+}
+{
+        "_id" : ObjectId("62a5867c6ad5b36eb69da06f"),
+        "name" : "Max",
+        "hobbies" : "Cooking",
+        "age" : 29,
+        "examScores" : [
+                {
+                        "difficulty" : 4,
+                        "score" : 57.9
+                },
+                {
+                        "difficulty" : 6,
+                        "score" : 62.1
+                },
+                {
+                        "difficulty" : 3,
+                        "score" : 88.5
+                }
+        ]
+}
+.. and so on...
+
+we can use $unwind stage to separte array values and can use the $push to add all values in a single array
+
+>>db.friends.aggregate({$unwind:"$hobbies"},{$group:{_id:{age:"$age"},allHobbies:{$push:"$hobbies"}}}).pretty()
+{
+        "_id" : {
+                "age" : 29
+        },
+        "allHobbies" : [ // Now results are combined into one array but there are duplicates
+                "Sports",
+                "Cooking",
+                "Cooking",
+                "Skiing"
+        ]
+}
+{
+        "_id" : {
+                "age" : 30
+        },
+        "allHobbies" : [
+                "Eating",
+                "Data Analytics"
+        ]
+}
+
+to get rid of duplicates we can use $addToSet instead of $push
+>>db.friends.aggregate({$unwind:"$hobbies"},{$group:{_id:{age:"$age"},allHobbies:{$addToSet:"$hobbies"}}}).pretty()
+{
+        "_id" : {
+                "age" : 29
+        },
+        "allHobbies" : [
+                "Skiing",
+                "Sports",
+                "Cooking"
+        ]
+}
+{
+        "_id" : {
+                "age" : 30
+        },
+        "allHobbies" : [
+                "Eating",
+                "Data Analytics"
+        ]
+}
+
+using projection with array
+db.friends.aggregate([
+    { $project: { _id: 0, examScore: { $slice: ["$examScores", 2, 1] } } }
+  ]).pretty();
+  
+getting the length of the array in each document
+db.friends.aggregate([
+    { $project: { _id: 0, numScores: { $size: "$examScores" } } }
+  ]).pretty();
+  
+  
+using $filter in array
+it will return documents with result array where score is more than 60
+	db.friends.aggregate([
+		{
+		  $project: {
+			_id: 0,
+			scores: { $filter: { input: '$examScores', as: 'sc', cond: { $gt: ["$$sc.score", 60] } } }
+		  }
+		}
+	  ]).pretty();
+	  
+	  
+using mulitple operators
+db.friends.aggregate([
+    { $unwind: "$examScores" },
+    { $project: { _id: 1, name: 1, age: 1, score: "$examScores.score" } },
+    { $sort: { score: -1 } },
+    { $group: { _id: "$_id", name: { $first: "$name" }, maxScore: { $max: "$score" } } },
+    { $sort: { maxScore: -1 } }
+  ]).pretty();
+  
+  
+The $bucket operator
+Categorizes incoming documents into groups, called buckets, 
+based on a specified expression and bucket boundaries and outputs a document per each bucket. 
+Each output document contains an _id field whose value specifies the inclusive lower bound of the 
+bucket. The output option specifies the fields included in each output document.
+
+$bucket only produces output documents for buckets that contain at least one input document.
+
+Syntax:
+{
+  $bucket: {
+      groupBy: <expression>,
+      boundaries: [ <lowerbound1>, <lowerbound2>, ... ],
+      default: <literal>,
+      output: {
+         <output1>: { <$accumulator expression> },
+         ...
+         <outputN>: { <$accumulator expression> }
+      }
+   }
+}
+
+{
+  $bucket: {
+      groupBy: <expression>,
+      boundaries: [ <lowerbound1>, <lowerbound2>, ... ],
+      default: <literal>,
+      output: {
+         <output1>: { <$accumulator expression> },
+         ...
+         <outputN>: { <$accumulator expression> }
+      }
+   }
+}
+boundaries:
+array
+An array of values based on the groupBy expression that specify the boundaries for each bucket.
+ Each adjacent pair of values acts as the inclusive lower boundary and the exclusive upper boundary
+ for the bucket. You must specify at least two boundaries.
+The specified values must be in ascending order and 
+all of the same type. The exception is if the values are of mixed numeric types, such as:
+[ 10, NumberLong(20), NumberInt(30) ]
+
+
+output:
+document
+Optional. A document that specifies the fields to include in the output documents in addition 
+to the _id field. To specify the field to include, you must use accumulator expressions.
+
+
+Example:
+db.persons
+  .aggregate([
+    {
+      $bucket: {
+        groupBy: '$dob.age',
+        boundaries: [18, 30, 40, 50, 60, 120],
+        output: {
+          numPersons: { $sum: 1 },
+          averageAge: { $avg: '$dob.age' }
+        }
+      }
+    }
+  ])
+  .pretty();
+  
+{ "_id" : 18, "numPersons" : 868, "averageAge" : 25.101382488479263 }
+{ "_id" : 30, "numPersons" : 910, "averageAge" : 34.51758241758242 }
+{ "_id" : 40, "numPersons" : 918, "averageAge" : 44.42265795206972 }
+{ "_id" : 50, "numPersons" : 976, "averageAge" : 54.533811475409834 }
+{ "_id" : 60, "numPersons" : 1328, "averageAge" : 66.55798192771084 }
+
+
+$bucketAuto:
+it automatically crates boundaries , the number of boundaries are specified in bucket field
+db.persons.aggregate([
+    {
+      $bucketAuto: {
+        groupBy: '$dob.age',
+        buckets: 5,
+        output: {
+          numPersons: { $sum: 1 },
+          averageAge: { $avg: '$dob.age' }
+        }
+      }
+    }
+  ]).pretty();
+
+{
+        "_id" : {
+                "min" : 21,
+                "max" : 32
+        },
+        "numPersons" : 1042,
+        "averageAge" : 25.99616122840691
+}
+{
+        "_id" : {
+                "min" : 32,
+                "max" : 43
+        },
+        "numPersons" : 1010,
+        "averageAge" : 36.97722772277228
+}
+.... and so on..
+
+$out pipeline can be used to create a new collection from the result of the aggregate
+db.persons.aggregate([
+    {
+      $project: {
+        _id: 0,
+        name: 1,
+        email: 1,
+        birthdate: { $toDate: '$dob.date' },
+        age: "$dob.age",
+        location: {
+          type: 'Point',
+          coordinates: [
+            {
+              $convert: {
+                input: '$location.coordinates.longitude',
+                to: 'double',
+                onError: 0.0,
+                onNull: 0.0
+              }
+            },
+            {
+              $convert: {
+                input: '$location.coordinates.latitude',
+                to: 'double',
+                onError: 0.0,
+                onNull: 0.0
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      $project: {
+        gender: 1,
+        email: 1,
+        location: 1,
+        birthdate: 1,
+        age: 1,
+        fullName: {
+          $concat: [
+            { $toUpper: { $substrCP: ['$name.first', 0, 1] } },
+            {
+              $substrCP: [
+                '$name.first',
+                1,
+                { $subtract: [{ $strLenCP: '$name.first' }, 1] }
+              ]
+            },
+            ' ',
+            { $toUpper: { $substrCP: ['$name.last', 0, 1] } },
+            {
+              $substrCP: [
+                '$name.last',
+                1,
+                { $subtract: [{ $strLenCP: '$name.last' }, 1] }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    { $out: "transformedPersons" }
+  ]).pretty();
+  
+
+
+
+$lookup stage:
+This stage can be used to get combined results from different collections using id or any value
+its just like inner join in sql to combine two tables using forign key
+
+db.books.aggregate([
+	{
+		$lookup:{from:"authors" ,localField: "authors", foreignField:"_id" , as:"creators"}
+	}
+]).pretty()
